@@ -3,6 +3,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../config/theme.dart';
 import '../data/dummy_data.dart';
+import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'face_registration_screen.dart';
 
@@ -444,7 +445,9 @@ class ProfileScreen extends StatelessWidget {
       width: double.infinity,
       height: 52,
       child: OutlinedButton.icon(
-        onPressed: () {
+        onPressed: () async {
+          await AuthService().logout();
+          if (!context.mounted) return;
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const LoginScreen()),
             (route) => false,

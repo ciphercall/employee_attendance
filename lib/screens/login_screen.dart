@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../config/theme.dart';
 import '../screens/main_shell.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,18 +14,64 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'john.anderson@pphl.com');
-  final _passwordController = TextEditingController(text: '••••••••');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
   bool _obscurePassword = true;
   bool _rememberMe = true;
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedLoginState();
+  }
+
+  Future<void> _loadSavedLoginState() async {
+    final savedEmail = await _authService.getSavedEmail();
+    final rememberMe = await _authService.getRememberMe();
+    if (!mounted) return;
+    setState(() {
+      _rememberMe = rememberMe;
+      _emailController.text = savedEmail ?? '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   void _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter email and password.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
-    // Simulate network delay
-    await Future.delayed(const Duration(seconds: 2));
+    final result = await _authService.login(
+      email: email,
+      password: password,
+      rememberMe: _rememberMe,
+    );
+
     if (!mounted) return;
     setState(() => _isLoading = false);
+
+    if (!result.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? 'Authentication failed.')),
+      );
+      return;
+    }
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const MainShell()),
     );
@@ -203,6 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
+                          onSubmitted: (_) => _handleLogin(),
                           decoration: InputDecoration(
                             prefixIcon: Icon(Icons.lock_outline_rounded,
                                 color: AppColors.textHint, size: 20),
@@ -369,7 +417,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildSocialButton(IconData icon, String label) {
     return InkWell(
-      onTap: _handleLogin,
+      onTap: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Use email/password to sign in.')),
+        );
+      },
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

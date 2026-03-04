@@ -1,7 +1,9 @@
 # PPHL Attendance System — Complete App Documentation
 
-> **Single Source of Truth** — Last updated: March 1, 2026  
+> **Single Source of Truth** — Last updated: March 4, 2026  
 > This document describes the complete architecture, every feature, all files, data flows, security mechanisms, and implementation details of the PPHL Attendance System Flutter Android app.
+
+> Authentication note: Login is integrated with backend `pphl_erp` via `POST /api/v1/a/login`. See `docs/AUTHENTICATION_INTEGRATION.md` for setup and API details.
 
 ---
 
@@ -44,7 +46,7 @@
 
 ### What the App Does
 
-1. Employee logs in with email/password (currently dummy auth).
+1. Employee logs in with email/password via backend JWT auth.
 2. Employee registers their face via **5-capture multi-angle registration** (straight, left, right, up, down) with **live camera angle detection** — the system only captures when the face matches the target angle (stored on-device).
 3. To check in for attendance, the employee:
   - Opens the check-in screen which activates the **front camera live preview** inside a human face-shaped container.
@@ -98,7 +100,7 @@ employee_attendance/
 │   ├── data/
 │   │   └── dummy_data.dart           # Static dummy data for all screens
 │   ├── screens/
-│   │   ├── login_screen.dart         # Login UI (dummy auth)
+│   │   ├── login_screen.dart         # Login UI (real backend auth)
 │   │   ├── main_shell.dart           # Bottom nav shell (4 tabs)
 │   │   ├── home_screen.dart          # Dashboard with stats, clock-in card, chart
 │   │   ├── check_in_screen.dart      # Live camera check-in with dynamic liveness steps + circular progress
@@ -107,6 +109,7 @@ employee_attendance/
 │   │   ├── notifications_screen.dart     # Notification list
 │   │   └── profile_screen.dart           # Profile, settings, face registration shortcut
 │   ├── services/
+│   │   ├── auth_service.dart             # Backend auth API + token/session persistence
 │   │   └── face_recognition_service.dart # Core ML service with angle detection (~1050 lines)
 │   └── widgets/
 │       ├── face_oval_guide.dart       # Face placement oval overlay
@@ -177,7 +180,7 @@ LoginScreen
 | Aspect | Detail |
 |---|---|
 | **State** | `StatefulWidget` |
-| **Auth** | Dummy — pre-filled email `john.anderson@pphl.com`, any password works |
+| **Auth** | Real backend auth via `POST /api/v1/a/login` |
 | **Flow** | 2-second simulated delay → `pushReplacement` to `MainShell` |
 | **UI** | Dark gradient background (`AppColors.darkGradient`), animated PPHL GIF logo from `peoplespoultry.com`, login card with email/password fields, remember me checkbox, social login buttons (Face ID / Biometric — both just call `_handleLogin`) |
 | **Logo URL** | `https://peoplespoultry.com/assets/front/img/1730297252134723053.gif` |
