@@ -1,17 +1,33 @@
 # employee_attendance
 
-A new Flutter project.
+Flutter Android app for PPHL attendance.
 
-## Getting Started
+## Backend auth integration
 
-This project is a starting point for a Flutter application.
+This app authenticates against `pphl_erp` JWT endpoints:
 
-A few resources to get you started if this is your first Flutter project:
+- `POST /api/v1/a/login`
+- `GET /api/v1/get-my-info`
+- `GET /api/v1/logout?token=...`
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+The app stores JWT token locally, loads profile from backend, and invalidates session on logout.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Run backend for local network
+
+From `pphl_erp`, run Laravel so phones on the same Wi-Fi can reach it:
+
+- `php artisan serve --host=0.0.0.0 --port=8000`
+
+Use your laptop LAN IP (example: `192.168.10.79`) for Android physical devices.
+
+## Flutter build with local backend URL
+
+From `employee_attendance`:
+
+- `flutter pub get`
+- `flutter build apk --release --dart-define=API_BASE_URL=http://192.168.10.79:8000 --dart-define=API_BASE_URLS=http://10.0.2.2:8000,http://192.168.10.79:8000`
+
+`API_BASE_URL` is primary.
+`API_BASE_URLS` is optional comma-separated fallback list.
+
+Default (when no `dart-define` is passed): `http://10.0.2.2:8000`.

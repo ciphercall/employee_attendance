@@ -2,13 +2,58 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../config/theme.dart';
-import '../data/dummy_data.dart';
+import '../models/auth_user_profile.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'face_registration_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final AuthService _authService = AuthService();
+  AuthUserProfile _profile = AuthUserProfile.fallback();
+  bool _isLoadingProfile = true;
+  String? _profileError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _isLoadingProfile = true;
+      _profileError = null;
+    });
+
+    try {
+      final profile = await _authService.getCurrentUserProfile();
+      if (!mounted) return;
+
+      setState(() {
+        _profile = profile ?? AuthUserProfile.fallback();
+        _profileError = profile == null ? 'Could not load profile data.' : null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _profile = AuthUserProfile.fallback();
+        _profileError = 'Could not load profile data.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingProfile = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,22 +62,17 @@ class ProfileScreen extends StatelessWidget {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // Header
           SliverToBoxAdapter(child: _buildHeader(context)),
-
-          // Info cards
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: FadeInUp(
                 delay: const Duration(milliseconds: 200),
                 duration: const Duration(milliseconds: 500),
-                child: _buildInfoCard(),
+                child: _buildInfoCard(_profile),
               ),
             ),
           ),
-
-          // Quick actions
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
@@ -43,20 +83,16 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // Settings section
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: FadeInUp(
                 delay: const Duration(milliseconds: 400),
                 duration: const Duration(milliseconds: 500),
-                child: _buildSettingsSection(context),
+                child: _buildSettingsSection(),
               ),
             ),
           ),
-
-          // Logout button
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -67,7 +103,27 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           ),
-
+          if (_profileError != null)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                child: TextButton.icon(
+                  onPressed: _isLoadingProfile ? null : _loadProfile,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text(
+                    _profileError!,
+                    style: GoogleFonts.poppins(fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+          if (_isLoadingProfile)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
@@ -117,8 +173,6 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-
-            // Avatar
             Container(
               width: 88,
               height: 88,
@@ -132,7 +186,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  DummyData.userAvatar,
+                  _profile.avatarLetters,
                   style: GoogleFonts.poppins(
                     fontSize: 32,
                     fontWeight: FontWeight.w700,
@@ -143,7 +197,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              DummyData.userName,
+              _profile.name,
               style: GoogleFonts.poppins(
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
@@ -152,7 +206,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              DummyData.userDesignation,
+              _profile.designation,
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: Colors.white60,
@@ -160,14 +214,13 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                DummyData.userEmployeeId,
+                _profile.employeeId,
                 style: GoogleFonts.poppins(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
@@ -182,7 +235,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoCard() {
+  Widget _buildInfoCard(AuthUserProfile profile) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -208,17 +261,15 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _infoRow(Icons.email_outlined, 'Email', DummyData.userEmail),
+          _infoRow(Icons.email_outlined, 'Email', profile.email),
           _infoDivider(),
-          _infoRow(Icons.business_outlined, 'Department',
-              DummyData.userDepartment),
+          _infoRow(Icons.business_outlined, 'Department', profile.department),
           _infoDivider(),
-          _infoRow(Icons.work_outline, 'Designation',
-              DummyData.userDesignation),
+          _infoRow(Icons.work_outline, 'Designation', profile.designation),
           _infoDivider(),
-          _infoRow(Icons.phone_outlined, 'Phone', '+880 1700 000000'),
+          _infoRow(Icons.phone_outlined, 'Phone', profile.phone),
           _infoDivider(),
-          _infoRow(Icons.cake_outlined, 'Date of Joining', 'Jan 15, 2024'),
+          _infoRow(Icons.cake_outlined, 'Date of Joining', profile.joiningDate),
         ],
       ),
     );
@@ -292,24 +343,27 @@ class ProfileScreen extends StatelessWidget {
                 Icons.description_outlined, 'View\nReports', AppColors.success),
             const SizedBox(width: 12),
             _quickActionCard(
-                Icons.face_retouching_natural, 'Register\nFace', AppColors.warning,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const FaceRegistrationScreen(),
-                    ),
-                  );
-                }),
+              Icons.face_retouching_natural,
+              'Register\nFace',
+              AppColors.warning,
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const FaceRegistrationScreen(),
+                  ),
+                );
+              },
+            ),
             const SizedBox(width: 12),
-            _quickActionCard(
-                Icons.qr_code_outlined, 'My QR\nCode', AppColors.primary),
+            _quickActionCard(Icons.qr_code_outlined, 'My QR\nCode', AppColors.primary),
           ],
         ),
       ],
     );
   }
 
-  Widget _quickActionCard(IconData icon, String label, Color color, {VoidCallback? onTap}) {
+  Widget _quickActionCard(IconData icon, String label, Color color,
+      {VoidCallback? onTap}) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -355,7 +409,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingsSection(BuildContext context) {
+  Widget _buildSettingsSection() {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -383,8 +437,7 @@ class ProfileScreen extends StatelessWidget {
           _settingsDivider(),
           _settingsTile(Icons.help_outline, 'Help & Support', null),
           _settingsDivider(),
-          _settingsTile(Icons.info_outline, 'About', null,
-              trailing: 'v1.0.0'),
+          _settingsTile(Icons.info_outline, 'About', null, trailing: 'v1.0.0'),
         ],
       ),
     );
@@ -446,7 +499,7 @@ class ProfileScreen extends StatelessWidget {
       height: 52,
       child: OutlinedButton.icon(
         onPressed: () async {
-          await AuthService().logout();
+          await _authService.logout();
           if (!context.mounted) return;
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const LoginScreen()),
