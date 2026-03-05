@@ -105,6 +105,8 @@ class AttendanceTile extends StatelessWidget {
                             ? 'Weekend'
                             : status == 'leave'
                                 ? 'On Leave'
+                            : status == 'requested'
+                              ? 'Awaiting approval'
                                 : 'Absent',
                         style: GoogleFonts.poppins(
                           fontSize: 11,
@@ -157,6 +159,8 @@ class AttendanceTile extends StatelessWidget {
         return AppColors.info;
       case 'weekend':
         return AppColors.textHint;
+      case 'requested':
+        return AppColors.warning;
       default:
         return AppColors.textHint;
     }
@@ -174,6 +178,8 @@ class AttendanceTile extends StatelessWidget {
         return Icons.event_busy_outlined;
       case 'weekend':
         return Icons.weekend_outlined;
+      case 'requested':
+        return Icons.hourglass_top_rounded;
       default:
         return Icons.circle_outlined;
     }

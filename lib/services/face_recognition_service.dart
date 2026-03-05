@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'dart:math';
-import 'dart:convert';
 import 'dart:ui';
 
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/face_registration_data.dart';
 
 /// Face angle for registration and verification challenges
 enum FaceAngle { straight, left, right, up, down, unknown }
@@ -64,12 +64,59 @@ class FaceRecognitionService {
     FaceAngle.down,
   ];
 
-  static const String _embeddingsKey = 'registered_face_embeddings';
-  static const String _avgEmbeddingKey = 'registered_face_avg_embedding';
-  static const String _adaptiveEmbeddingsKey =
-      'registered_face_adaptive_embeddings';
-  static const String _registrationTimeKey = 'face_registration_time';
-  static const String _captureCountKey = 'face_registration_count';
+  List<List<double>> _registeredEmbeddings = <List<double>>[];
+  List<double>? _registeredAvgEmbedding;
+  List<List<double>> _adaptiveEmbeddings = <List<double>>[];
+  String? _registrationTime;
+  int _registrationCaptureCount = 0;
+
+  void hydrateRegistration(FaceRegistrationData? registration) {
+    if (registration == null || !registration.hasData) {
+      clearRegistrationMemory();
+      return;
+    }
+
+    _registeredAvgEmbedding = List<double>.from(registration.avgEmbedding);
+    _registeredEmbeddings = registration.captureEmbeddings
+        .map((row) => List<double>.from(row))
+        .toList();
+    if (_registeredEmbeddings.isEmpty && _registeredAvgEmbedding != null) {
+      _registeredEmbeddings = [List<double>.from(_registeredAvgEmbedding!)];
+    }
+    _adaptiveEmbeddings = registration.adaptiveEmbeddings
+        .map((row) => List<double>.from(row))
+        .toList();
+    _registrationCaptureCount = registration.captureCount;
+    _registrationTime = registration.registeredAt;
+  }
+
+  FaceRegistrationData? exportRegistrationData() {
+    if (_registeredAvgEmbedding == null || _registeredAvgEmbedding!.isEmpty) {
+      return null;
+    }
+
+    return FaceRegistrationData(
+      avgEmbedding: List<double>.from(_registeredAvgEmbedding!),
+      captureEmbeddings: _registeredEmbeddings
+          .map((row) => List<double>.from(row))
+          .toList(),
+      adaptiveEmbeddings: _adaptiveEmbeddings
+          .map((row) => List<double>.from(row))
+          .toList(),
+      captureCount: _registrationCaptureCount,
+      registeredAt: _registrationTime,
+      registrationQuality: null,
+      status: 'active',
+    );
+  }
+
+  void clearRegistrationMemory() {
+    _registeredAvgEmbedding = null;
+    _registeredEmbeddings = <List<double>>[];
+    _adaptiveEmbeddings = <List<double>>[];
+    _registrationTime = null;
+    _registrationCaptureCount = 0;
+  }
 
   /// Initialize the service: load TFLite model & face detector
   Future<void> initialize() async {
@@ -707,17 +754,9 @@ class FaceRecognitionService {
       );
     }
 
-    // Load existing embeddings
-    final prefs = await SharedPreferences.getInstance();
-    List<List<double>> embeddings = [];
-
-    if (captureNumber > 1) {
-      final stored = prefs.getString(_embeddingsKey);
-      if (stored != null) {
-        final decoded = jsonDecode(stored) as List;
-        embeddings = decoded.map((e) => List<double>.from(e as List)).toList();
-      }
-    }
+    final embeddings = captureNumber > 1
+        ? _registeredEmbeddings.map((item) => List<double>.from(item)).toList()
+        : <List<double>>[];
 
     // Same-person check: verify this capture is the same person as previous captures
     if (embeddings.isNotEmpty) {
@@ -741,15 +780,15 @@ class FaceRecognitionService {
     }
 
     embeddings.add(result.embedding!);
-    await prefs.setString(_embeddingsKey, jsonEncode(embeddings));
+    _registeredEmbeddings = embeddings;
 
     // If final capture, compute and store average embedding
     if (captureNumber >= registrationCaptures) {
       final avgEmbedding = _averageEmbeddings(embeddings);
-      await prefs.setString(_avgEmbeddingKey, jsonEncode(avgEmbedding));
-      await prefs.remove(_adaptiveEmbeddingsKey);
-      await prefs.setString(_registrationTimeKey, DateTime.now().toIso8601String());
-      await prefs.setInt(_captureCountKey, embeddings.length);
+      _registeredAvgEmbedding = avgEmbedding;
+      _adaptiveEmbeddings = <List<double>>[];
+      _registrationTime = DateTime.now().toIso8601String();
+      _registrationCaptureCount = embeddings.length;
 
       return FaceRegistrationResult(
         success: true,
@@ -781,12 +820,11 @@ class FaceRecognitionService {
       );
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_avgEmbeddingKey, jsonEncode(result.embedding));
-    await prefs.setString(_embeddingsKey, jsonEncode([result.embedding]));
-    await prefs.remove(_adaptiveEmbeddingsKey);
-    await prefs.setString(_registrationTimeKey, DateTime.now().toIso8601String());
-    await prefs.setInt(_captureCountKey, 1);
+    _registeredAvgEmbedding = List<double>.from(result.embedding!);
+    _registeredEmbeddings = [List<double>.from(result.embedding!)];
+    _adaptiveEmbeddings = <List<double>>[];
+    _registrationTime = DateTime.now().toIso8601String();
+    _registrationCaptureCount = 1;
 
     return FaceRegistrationResult(
       success: true,
@@ -797,30 +835,22 @@ class FaceRecognitionService {
 
   /// Check if a face has been registered
   Future<bool> isFaceRegistered() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey(_avgEmbeddingKey);
+    return _registeredAvgEmbedding != null && _registeredAvgEmbedding!.isNotEmpty;
   }
 
   /// Get the registration timestamp
   Future<String?> getRegistrationTime() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_registrationTimeKey);
+    return _registrationTime;
   }
 
   /// Get the number of captures used during registration
   Future<int> getRegistrationCaptureCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_captureCountKey) ?? 0;
+    return _registrationCaptureCount;
   }
 
   /// Delete the registered face
   Future<void> deleteRegisteredFace() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_avgEmbeddingKey);
-    await prefs.remove(_embeddingsKey);
-    await prefs.remove(_adaptiveEmbeddingsKey);
-    await prefs.remove(_registrationTimeKey);
-    await prefs.remove(_captureCountKey);
+    clearRegistrationMemory();
   }
 
   /// Verify a face against registration templates with strict core consistency.
@@ -829,10 +859,9 @@ class FaceRecognitionService {
     File imageFile, {
     bool requireSmile = false,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final storedJson = prefs.getString(_avgEmbeddingKey);
+    final storedEmbedding = _registeredAvgEmbedding;
 
-    if (storedJson == null) {
+    if (storedEmbedding == null || storedEmbedding.isEmpty) {
       return FaceVerificationResult(
         isMatch: false,
         confidence: 0,
@@ -856,39 +885,20 @@ class FaceRecognitionService {
       );
     }
 
-    // Load stored average embedding (core template)
-    final storedEmbedding = List<double>.from(jsonDecode(storedJson));
-
     // Core similarities (average + all registration captures)
     final coreSimilarityScores = <double>[
       _cosineSimilarity(result.embedding!, storedEmbedding),
     ];
 
     // Compare with all registration captures (core templates)
-    final allEmbeddingsJson = prefs.getString(_embeddingsKey);
-    if (allEmbeddingsJson != null) {
-      try {
-        final allEmbeddings = (jsonDecode(allEmbeddingsJson) as List)
-            .map((e) => List<double>.from(e as List))
-            .toList();
-        for (final emb in allEmbeddings) {
-          coreSimilarityScores.add(_cosineSimilarity(result.embedding!, emb));
-        }
-      } catch (_) {}
+    for (final emb in _registeredEmbeddings) {
+      coreSimilarityScores.add(_cosineSimilarity(result.embedding!, emb));
     }
 
     // Adaptive similarities (supporting templates only)
     final adaptiveSimilarityScores = <double>[];
-    final adaptiveJson = prefs.getString(_adaptiveEmbeddingsKey);
-    if (adaptiveJson != null) {
-      try {
-        final adaptiveEmbeddings = (jsonDecode(adaptiveJson) as List)
-            .map((e) => List<double>.from(e as List))
-            .toList();
-        for (final emb in adaptiveEmbeddings) {
-          adaptiveSimilarityScores.add(_cosineSimilarity(result.embedding!, emb));
-        }
-      } catch (_) {}
+    for (final emb in _adaptiveEmbeddings) {
+      adaptiveSimilarityScores.add(_cosineSimilarity(result.embedding!, emb));
     }
 
     // Core weighted top-k aggregation (identity decision is core-template driven)
@@ -926,7 +936,7 @@ class FaceRecognitionService {
     if (isMatch &&
         coreTop1 >= _adaptiveEnrollmentThreshold &&
         coreAggregateSimilarity >= qualityAwareThreshold) {
-      await _addAdaptiveTemplate(result.embedding!, prefs);
+      await _addAdaptiveTemplate(result.embedding!);
     }
 
     final supportiveAdaptive = adaptiveTop1 >= coreConsistencyThreshold;
@@ -943,19 +953,8 @@ class FaceRecognitionService {
 
   Future<void> _addAdaptiveTemplate(
     List<double> embedding,
-    SharedPreferences prefs,
   ) async {
-    final adaptiveJson = prefs.getString(_adaptiveEmbeddingsKey);
-    final adaptiveEmbeddings = <List<double>>[];
-
-    if (adaptiveJson != null) {
-      try {
-        adaptiveEmbeddings.addAll(
-          (jsonDecode(adaptiveJson) as List)
-              .map((e) => List<double>.from(e as List)),
-        );
-      } catch (_) {}
-    }
+    final adaptiveEmbeddings = [..._adaptiveEmbeddings];
 
     final exists = adaptiveEmbeddings
         .any((stored) => _cosineSimilarity(stored, embedding) > 0.97);
@@ -966,7 +965,7 @@ class FaceRecognitionService {
       adaptiveEmbeddings.removeRange(0, adaptiveEmbeddings.length - 20);
     }
 
-    await prefs.setString(_adaptiveEmbeddingsKey, jsonEncode(adaptiveEmbeddings));
+    _adaptiveEmbeddings = adaptiveEmbeddings;
   }
 
   /// Release resources

@@ -1,3 +1,5 @@
+import 'face_registration_data.dart';
+
 class AuthUserProfile {
   const AuthUserProfile({
     required this.name,
@@ -7,6 +9,7 @@ class AuthUserProfile {
     required this.employeeId,
     required this.phone,
     required this.joiningDate,
+    this.faceRegistration,
   });
 
   final String name;
@@ -16,6 +19,7 @@ class AuthUserProfile {
   final String employeeId;
   final String phone;
   final String joiningDate;
+  final FaceRegistrationData? faceRegistration;
 
   String get avatarLetters {
     final trimmedName = name.trim();
@@ -81,6 +85,7 @@ class AuthUserProfile {
         employee['joiningDate'],
         employee['date_of_joining'],
       ], fallback: 'N/A'),
+      faceRegistration: FaceRegistrationData.fromJson(json['face_registration']),
     );
   }
 
@@ -93,6 +98,7 @@ class AuthUserProfile {
       employeeId: 'N/A',
       phone: 'N/A',
       joiningDate: 'N/A',
+      faceRegistration: null,
     );
   }
 

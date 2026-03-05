@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../config/theme.dart';
 import '../screens/main_shell.dart';
 import '../services/auth_service.dart';
+import '../services/face_recognition_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
+  final FaceRecognitionService _faceRecognitionService = FaceRecognitionService();
   bool _obscurePassword = true;
   bool _rememberMe = true;
   bool _isLoading = false;
@@ -71,6 +73,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       return;
     }
+
+    final profile = await _authService.getCurrentUserProfile();
+    _faceRecognitionService.hydrateRegistration(profile?.faceRegistration);
+
+    if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const MainShell()),

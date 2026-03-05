@@ -4,6 +4,7 @@ import 'config/theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/auth_service.dart';
+import 'services/face_recognition_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,12 +40,25 @@ class AppBootstrap extends StatefulWidget {
 
 class _AppBootstrapState extends State<AppBootstrap> {
   final AuthService _authService = AuthService();
+  final FaceRecognitionService _faceRecognitionService = FaceRecognitionService();
   late Future<bool> _isLoggedInFuture;
 
   @override
   void initState() {
     super.initState();
-    _isLoggedInFuture = _authService.isLoggedIn();
+    _isLoggedInFuture = _prepareSession();
+  }
+
+  Future<bool> _prepareSession() async {
+    final isLoggedIn = await _authService.isLoggedIn();
+    if (!isLoggedIn) {
+      _faceRecognitionService.clearRegistrationMemory();
+      return false;
+    }
+
+    final profile = await _authService.getCurrentUserProfile();
+    _faceRecognitionService.hydrateRegistration(profile?.faceRegistration);
+    return true;
   }
 
   @override

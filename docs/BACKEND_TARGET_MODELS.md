@@ -3,6 +3,8 @@
 Last updated: 2026-03-01  
 Scope: final structures for `new_attendance_requests`, `new_attendance_devices`, and new `face_registration_android` so Android app + ZKTeco ADMS can run on the same backend.
 
+Implementation update (2026-03-05): mobile APIs are now active in `pphl_erp` for face registration upsert/fetch and attendance request submit/list. The Android app now uses these endpoints in production flow.
+
 ---
 
 ## 1) `new_attendance_requests` (final)

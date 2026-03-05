@@ -52,4 +52,12 @@ class AppConfig {
 
   static List<String> get logoutUrls =>
       apiBaseUrlCandidates.map((base) => '$base/api/v1/logout').toList();
+
+    static List<String> get attendanceRequestUrls => apiBaseUrlCandidates
+      .map((base) => '$base/api/v1/mobile/attendance-requests')
+      .toList();
+
+    static List<String> get faceRegistrationUrls => apiBaseUrlCandidates
+      .map((base) => '$base/api/v1/mobile/face-registration')
+      .toList();
 }

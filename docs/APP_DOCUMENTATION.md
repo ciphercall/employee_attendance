@@ -5,6 +5,8 @@
 
 > Authentication note: Login is integrated with backend `pphl_erp` via `POST /api/v1/a/login`. See `docs/AUTHENTICATION_INTEGRATION.md` for setup and API details.
 
+> March 5, 2026 update: Face registration and attendance records are now backend-synced. Face data is persisted in backend `face_registration_android` and hydrated into app memory on login/profile fetch. Attendance check-in/check-out submits to backend `new_attendance_requests`, and attendance screens now show backend `requested` records. Any older local-only notes in this file are superseded by this update and `docs/AUTHENTICATION_INTEGRATION.md`.
+
 ---
 
 ## Table of Contents

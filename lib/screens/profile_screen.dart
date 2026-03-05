@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../config/theme.dart';
 import '../models/auth_user_profile.dart';
 import '../services/auth_service.dart';
+import '../services/face_recognition_service.dart';
 import 'login_screen.dart';
 import 'face_registration_screen.dart';
 
@@ -16,6 +17,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _authService = AuthService();
+  final FaceRecognitionService _faceRecognitionService = FaceRecognitionService();
   AuthUserProfile _profile = AuthUserProfile.fallback();
   bool _isLoadingProfile = true;
   String? _profileError;
@@ -40,12 +42,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _profile = profile ?? AuthUserProfile.fallback();
         _profileError = profile == null ? 'Could not load profile data.' : null;
       });
+      _faceRecognitionService.hydrateRegistration(profile?.faceRegistration);
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _profile = AuthUserProfile.fallback();
         _profileError = 'Could not load profile data.';
       });
+      _faceRecognitionService.clearRegistrationMemory();
     } finally {
       if (mounted) {
         setState(() {
@@ -500,6 +504,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: OutlinedButton.icon(
         onPressed: () async {
           await _authService.logout();
+          _faceRecognitionService.clearRegistrationMemory();
           if (!context.mounted) return;
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const LoginScreen()),

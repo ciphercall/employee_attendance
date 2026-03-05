@@ -1,98 +1,61 @@
-# Authentication Integration (employee_attendance ↔ pphl_erp)
+# Authentication & Mobile Attendance Integration (employee_attendance ↔ pphl_erp)
 
-Last updated: March 4, 2026
+Last updated: March 5, 2026
 
 ## Summary
 
-The Android app authentication is now integrated with the real backend API from `pphl_erp`.
+The app now uses live backend APIs for:
 
-- Previous behavior: dummy login with 2-second delay and unconditional success
-- Current behavior: real API authentication against Laravel JWT endpoint
+- JWT login/session
+- user profile fetch (`get-my-info`)
+- face registration persistence (`face_registration_android`)
+- check-in/check-out attendance request submission (`new_attendance_requests`)
+- attendance history records (`requested` status only)
 
-## Backend Endpoint Used
+## Backend endpoints used
 
-- Method: `POST`
-- URL: `${API_BASE_URL}/api/v1/a/login`
-- Request body:
+- `POST /api/v1/a/login`
+- `GET /api/v1/get-my-info`
+- `GET /api/v1/logout?token=...`
+- `GET /api/v1/mobile/face-registration`
+- `POST /api/v1/mobile/face-registration`
+- `GET /api/v1/mobile/attendance-requests?status=requested`
+- `POST /api/v1/mobile/attendance-requests`
 
-```json
-{
-  "email": "user@domain.com",
-  "password": "your-password"
-}
-```
+## App architecture updates
 
-- Success response (expected):
+### New files
 
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "token": "<jwt-token>",
-  "token_type": "bearer"
-}
-```
+- `lib/models/face_registration_data.dart`
+- `lib/models/attendance_request_record.dart`
+- `lib/services/face_registration_api_service.dart`
+- `lib/services/attendance_request_service.dart`
 
-## App Changes
+### Updated files
 
-### New Files
-
-- `lib/config/app_config.dart`
-  - Holds `API_BASE_URL` via `--dart-define`
-  - Default: `http://10.0.2.2:8000`
-
-- `lib/services/auth_service.dart`
-  - Performs login HTTP request
-  - Persists token/session using `shared_preferences`
-  - Provides `isLoggedIn`, `getToken`, and `logout`
-
-### Updated Files
-
+- `lib/services/face_recognition_service.dart`
+  - face templates are no longer persisted in local storage
+  - templates are held in memory and hydrated from backend payloads
+- `lib/models/auth_user_profile.dart`
+  - now includes `faceRegistration` payload parsing
 - `lib/screens/login_screen.dart`
-  - Replaced dummy auth with real API login
-  - Shows backend validation/error messages
-  - Loads remembered email state
-
+  - hydrates face registration after successful login
 - `lib/main.dart`
-  - Added bootstrap auth check on app start
-  - Navigates to `MainShell` if token exists, otherwise `LoginScreen`
-
+  - bootstrap loads profile + face registration for existing token sessions
 - `lib/screens/profile_screen.dart`
-  - Sign out now clears stored auth session before navigation
+  - profile load hydrates face registration memory
+  - logout clears in-memory registration
+- `lib/screens/face_registration_screen.dart`
+  - completed registration is synced to backend
+- `lib/screens/check_in_screen.dart`
+  - verified check-in/check-out submits attendance request to backend
+- `lib/screens/home_screen.dart`
+  - recent attendance records now come from backend
+- `lib/screens/attendance_history_screen.dart`
+  - dummy attendance records replaced by backend requested records
 
-- `android/app/src/main/AndroidManifest.xml`
-  - Added `android:usesCleartextTraffic="true"` for local HTTP backend in development
+## Notes
 
-- `pubspec.yaml`
-  - Added dependency: `http`
-
-## Running with Backend
-
-From project root (`employee_attendance`):
-
-```bash
-flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
-```
-
-For physical Android device, use your PC LAN IP (example):
-
-```bash
-flutter run --dart-define=API_BASE_URL=http://192.168.1.50:8000
-```
-
-## Build APK
-
-```bash
-flutter build apk --release --dart-define=API_BASE_URL=http://10.0.2.2:8000
-```
-
-Generated APK:
-
-- `build/app/outputs/flutter-apk/app-release.apk`
-
-## Validation Performed
-
-- Dependency fetch completed (`flutter pub get`)
-- Flutter diagnostics for changed files reported no code errors
-- Release APK rebuilt successfully with updated timestamp
+- Dummy data is still used for non-attendance visual placeholders to keep UI consistency.
+- App attendance list currently shows only records in `requested` state.
+- Backend maps DB `pending` to API `requested` for mobile display.

@@ -14,6 +14,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../config/theme.dart';
 import '../services/face_recognition_service.dart';
+import '../services/attendance_request_service.dart';
 
 // ================================================================
 // Face path helpers & progress painter
@@ -142,7 +143,13 @@ enum _BlinkPhase { waitingOpen, waitingClosed, waitingReopen, done }
 
 class CheckInScreen extends StatefulWidget {
   final VoidCallback onCheckIn;
-  const CheckInScreen({super.key, required this.onCheckIn});
+  final bool isCheckOut;
+
+  const CheckInScreen({
+    super.key,
+    required this.onCheckIn,
+    this.isCheckOut = false,
+  });
 
   @override
   State<CheckInScreen> createState() => _CheckInScreenState();
@@ -154,6 +161,7 @@ class _CheckInScreenState extends State<CheckInScreen>
 
   // ---- Services & Controllers ----
   final _faceService = FaceRecognitionService();
+  final _attendanceRequestService = AttendanceRequestService();
   CameraController? _cameraController;
 
   // ---- State ----
@@ -798,9 +806,29 @@ class _CheckInScreenState extends State<CheckInScreen>
       }
 
       if (!mounted) return;
+
+      final attendanceResult = await _attendanceRequestService.submitSelfPunch(
+        isCheckOut: widget.isCheckOut,
+        latitude: _position!.latitude,
+        longitude: _position!.longitude,
+        address: _address,
+        faceRegistration: _faceService.exportRegistrationData(),
+      );
+
+      if (!attendanceResult.success) {
+        setState(() {
+          _phase = CheckInPhase.error;
+          _errorMessage = attendanceResult.message ??
+              'Attendance request submission failed.';
+        });
+        return;
+      }
+
       setState(() {
         _phase = CheckInPhase.success;
-        _statusMessage = 'Check-in successful!';
+        _statusMessage = widget.isCheckOut
+            ? 'Check-out request submitted!'
+            : 'Check-in request submitted!';
       });
     } catch (e) {
       if (!mounted) return;
@@ -854,7 +882,7 @@ class _CheckInScreenState extends State<CheckInScreen>
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Check In',
+        title: Text(widget.isCheckOut ? 'Check Out' : 'Check In',
             style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,

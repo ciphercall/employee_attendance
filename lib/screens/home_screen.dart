@@ -4,6 +4,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../config/theme.dart';
 import '../data/dummy_data.dart';
+import '../models/attendance_request_record.dart';
+import '../services/attendance_request_service.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/attendance_tile.dart';
 import 'check_in_screen.dart';
@@ -16,8 +18,36 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final AttendanceRequestService _attendanceRequestService =
+      AttendanceRequestService();
+
   bool _isClockedIn = DummyData.isClockedIn;
   String _checkInTime = DummyData.todayCheckIn;
+  List<AttendanceRequestRecord> _requestedRecords = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttendanceRequests();
+  }
+
+  Future<void> _loadAttendanceRequests() async {
+    final records = await _attendanceRequestService.getRequestedRecords();
+    if (!mounted) return;
+
+    final latest = records.isNotEmpty ? records.first : null;
+    final isClockedIn = latest != null &&
+        latest.checkInText != '--' &&
+        latest.checkOutText == '--';
+
+    setState(() {
+      _requestedRecords = records;
+      if (latest != null && latest.checkInText != '--') {
+        _checkInTime = latest.checkInText;
+      }
+      _isClockedIn = isClockedIn;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final record = DummyData.recentAttendance[index];
+                final record = _requestedRecords[index].toTileRecord();
                 return FadeInUp(
                   delay: Duration(milliseconds: 550 + (index * 50)),
                   duration: const Duration(milliseconds: 400),
@@ -115,7 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               },
-              childCount: 5,
+              childCount: _requestedRecords.length > 5
+                  ? 5
+                  : _requestedRecords.length,
             ),
           ),
 
@@ -381,11 +413,17 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => CheckInScreen(
+                    isCheckOut: _isClockedIn,
                     onCheckIn: () {
                       setState(() {
-                        _isClockedIn = true;
-                        _checkInTime = TimeOfDay.now().format(context);
+                        _isClockedIn = !_isClockedIn;
+                        if (!_isClockedIn) {
+                          _checkInTime = DummyData.todayCheckIn;
+                        } else {
+                          _checkInTime = TimeOfDay.now().format(context);
+                        }
                       });
+                      _loadAttendanceRequests();
                     },
                   ),
                 ),

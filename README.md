@@ -2,6 +2,14 @@
 
 Flutter Android app for PPHL attendance.
 
+## Current integration scope
+
+- Login/auth session: backend JWT (`pphl_erp`)
+- Face registration: persisted to backend table `face_registration_android`
+- Check-in/check-out: submitted as attendance requests to backend table `new_attendance_requests`
+- Attendance records shown in app: real backend records with `requested` status only
+- Dummy UI data retained for visual consistency (stats/other placeholders)
+
 ## Backend auth integration
 
 This app authenticates against `pphl_erp` JWT endpoints:
@@ -9,8 +17,12 @@ This app authenticates against `pphl_erp` JWT endpoints:
 - `POST /api/v1/a/login`
 - `GET /api/v1/get-my-info`
 - `GET /api/v1/logout?token=...`
+- `GET /api/v1/mobile/face-registration`
+- `POST /api/v1/mobile/face-registration`
+- `GET /api/v1/mobile/attendance-requests?status=requested`
+- `POST /api/v1/mobile/attendance-requests`
 
-The app stores JWT token locally, loads profile from backend, and invalidates session on logout.
+The app stores JWT token locally, loads profile + face registration from backend, keeps face data in memory for matching, and invalidates session on logout.
 
 ## Run backend for local network
 

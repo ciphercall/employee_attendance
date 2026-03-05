@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import '../config/theme.dart';
 import '../data/dummy_data.dart';
+import '../models/attendance_request_record.dart';
+import '../services/attendance_request_service.dart';
 import '../widgets/attendance_tile.dart';
 
 class AttendanceHistoryScreen extends StatefulWidget {
@@ -15,14 +17,37 @@ class AttendanceHistoryScreen extends StatefulWidget {
 }
 
 class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
+  final AttendanceRequestService _attendanceRequestService =
+      AttendanceRequestService();
+
   String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Present', 'Absent', 'Late', 'Leave'];
+  final List<String> _filters = ['All', 'Requested'];
+  List<AttendanceRequestRecord> _records = const [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecords();
+  }
+
+  Future<void> _loadRecords() async {
+    setState(() => _isLoading = true);
+    final records = await _attendanceRequestService.getRequestedRecords();
+    if (!mounted) return;
+    setState(() {
+      _records = records;
+      _isLoading = false;
+    });
+  }
 
   List<Map<String, dynamic>> get _filteredRecords {
-    if (_selectedFilter == 'All') return DummyData.recentAttendance;
-    return DummyData.recentAttendance
-        .where(
-            (r) => (r['status'] as String).toLowerCase() == _selectedFilter.toLowerCase())
+    final all = _records.map((item) => item.toTileRecord()).toList();
+    if (_selectedFilter == 'All') return all;
+    return all
+        .where((r) =>
+            (r['status'] as String).toLowerCase() ==
+            _selectedFilter.toLowerCase())
         .toList();
   }
 
@@ -85,11 +110,16 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
                     child: Center(
                       child: Column(
                         children: [
+                          if (_isLoading)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 12),
+                              child: CircularProgressIndicator(),
+                            ),
                           Icon(Icons.event_busy_outlined,
                               size: 60, color: AppColors.textHint),
                           const SizedBox(height: 12),
                           Text(
-                            'No records found',
+                            _isLoading ? 'Loading records...' : 'No records found',
                             style: GoogleFonts.poppins(
                               fontSize: 14,
                               color: AppColors.textHint,
@@ -304,7 +334,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final filter = _filters[index];
           final isSelected = _selectedFilter == filter;
