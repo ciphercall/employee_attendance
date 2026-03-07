@@ -59,3 +59,7 @@ The app now uses live backend APIs for:
 - Dummy data is still used for non-attendance visual placeholders to keep UI consistency.
 - App attendance list currently shows only records in `requested` state.
 - Backend maps DB `pending` to API `requested` for mobile display.
+- Home screen now exposes separate `Check In` and `Check Out` buttons.
+  - `Check In` is enabled only when user is not clocked in.
+  - `Check Out` is enabled only when user is clocked in.
+  - Clocked-in state is derived from today's attendance request first, preventing stale/latest-record conflicts that could disable checkout incorrectly.

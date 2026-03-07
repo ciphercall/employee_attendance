@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../config/theme.dart';
 import '../data/dummy_data.dart';
 import '../models/attendance_request_record.dart';
@@ -23,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isClockedIn = DummyData.isClockedIn;
   String _checkInTime = DummyData.todayCheckIn;
+  String _checkOutTime = DummyData.todayCheckOut;
   List<AttendanceRequestRecord> _requestedRecords = const [];
 
   @override
@@ -35,18 +37,79 @@ class _HomeScreenState extends State<HomeScreen> {
     final records = await _attendanceRequestService.getRequestedRecords();
     if (!mounted) return;
 
-    final latest = records.isNotEmpty ? records.first : null;
-    final isClockedIn = latest != null &&
-        latest.checkInText != '--' &&
-        latest.checkOutText == '--';
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    AttendanceRequestRecord? todayRecord;
+    for (final record in records) {
+      if (record.attDate == today) {
+        todayRecord = record;
+        break;
+      }
+    }
+
+    final referenceRecord = todayRecord ?? (records.isNotEmpty ? records.first : null);
+    final isClockedIn = todayRecord != null
+        ? todayRecord.checkInText != '--' && todayRecord.checkOutText == '--'
+        : referenceRecord != null &&
+            referenceRecord.checkInText != '--' &&
+            referenceRecord.checkOutText == '--';
 
     setState(() {
       _requestedRecords = records;
-      if (latest != null && latest.checkInText != '--') {
-        _checkInTime = latest.checkInText;
+      if (todayRecord != null && todayRecord.checkInText != '--') {
+        _checkInTime = todayRecord.checkInText;
+      } else {
+        _checkInTime = DummyData.todayCheckIn;
       }
+
+      if (todayRecord != null && todayRecord.checkOutText != '--') {
+        _checkOutTime = todayRecord.checkOutText;
+      } else {
+        _checkOutTime = DummyData.todayCheckOut;
+      }
+
       _isClockedIn = isClockedIn;
     });
+  }
+
+  Future<void> _openCheckFlow({required bool isCheckOut}) async {
+    if (isCheckOut && !_isClockedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You need to check in first before checking out.'),
+        ),
+      );
+      return;
+    }
+
+    if (!isCheckOut && _isClockedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You are already checked in. Use Check Out.'),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CheckInScreen(
+          isCheckOut: isCheckOut,
+          onCheckIn: () {
+            setState(() {
+              if (isCheckOut) {
+                _isClockedIn = false;
+                _checkOutTime = TimeOfDay.now().format(context);
+              } else {
+                _isClockedIn = true;
+                _checkInTime = TimeOfDay.now().format(context);
+                _checkOutTime = DummyData.todayCheckOut;
+              }
+            });
+            _loadAttendanceRequests();
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -73,14 +136,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Clock In/Out Button
+          // Attendance actions
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: FadeInUp(
                 delay: const Duration(milliseconds: 300),
                 duration: const Duration(milliseconds: 500),
-                child: _buildClockInCard(context),
+                child: _buildAttendanceActionCard(context),
               ),
             ),
           ),
@@ -283,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.white.withValues(alpha: 0.2),
                   ),
                   _buildTodayStat(
-                      'Check Out', DummyData.todayCheckOut, Icons.logout_rounded),
+                      'Check Out', _checkOutTime, Icons.logout_rounded),
                   Container(
                     width: 1,
                     height: 40,
@@ -366,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildClockInCard(BuildContext context) {
+  Widget _buildAttendanceActionCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -381,74 +444,85 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isClockedIn ? 'You\'re Clocked In' : 'Ready to Clock In?',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _isClockedIn
-                      ? 'Checked in at $_checkInTime'
-                      : 'Verify with face + location',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: Colors.white70,
-                  ),
-                ),
-              ],
+          Text(
+            _isClockedIn ? 'You\'re Clocked In' : 'Ready to Check In?',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
             ),
           ),
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => CheckInScreen(
-                    isCheckOut: _isClockedIn,
-                    onCheckIn: () {
-                      setState(() {
-                        _isClockedIn = !_isClockedIn;
-                        if (!_isClockedIn) {
-                          _checkInTime = DummyData.todayCheckIn;
-                        } else {
-                          _checkInTime = TimeOfDay.now().format(context);
-                        }
-                      });
-                      _loadAttendanceRequests();
-                    },
+          const SizedBox(height: 4),
+          Text(
+            _isClockedIn
+                ? 'Checked in at $_checkInTime. You can check out now.'
+                : 'Verify with face + location for check-in/check-out.',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isClockedIn
+                      ? null
+                      : () => _openCheckFlow(isCheckOut: false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.primary,
+                    disabledBackgroundColor: Colors.white.withValues(alpha: 0.5),
+                    disabledForegroundColor: AppColors.textHint,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.login_rounded, size: 20),
+                  label: Text(
+                    'Check In',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              );
-            },
-            child: Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _isClockedIn
+                      ? () => _openCheckFlow(isCheckOut: true)
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor:
+                        AppColors.success.withValues(alpha: 0.45),
+                    disabledForegroundColor: Colors.white70,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                ],
+                  icon: const Icon(Icons.logout_rounded, size: 20),
+                  label: Text(
+                    'Check Out',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
-              child: Icon(
-                _isClockedIn ? Icons.check_rounded : Icons.arrow_forward_rounded,
-                color: _isClockedIn ? AppColors.success : AppColors.primary,
-                size: 28,
-              ),
-            ),
+            ],
           ),
         ],
       ),

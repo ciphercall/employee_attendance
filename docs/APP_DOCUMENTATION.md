@@ -7,6 +7,8 @@
 
 > March 5, 2026 update: Face registration and attendance records are now backend-synced. Face data is persisted in backend `face_registration_android` and hydrated into app memory on login/profile fetch. Attendance check-in/check-out submits to backend `new_attendance_requests`, and attendance screens now show backend `requested` records. Any older local-only notes in this file are superseded by this update and `docs/AUTHENTICATION_INTEGRATION.md`.
 
+> March 7, 2026 UI update: Home screen uses separate `Check In` and `Check Out` buttons instead of a single toggle action. Buttons are state-aware and prevent invalid sequences.
+
 ---
 
 ## Table of Contents

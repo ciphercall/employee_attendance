@@ -7,6 +7,7 @@ Flutter Android app for PPHL attendance.
 - Login/auth session: backend JWT (`pphl_erp`)
 - Face registration: persisted to backend table `face_registration_android`
 - Check-in/check-out: submitted as attendance requests to backend table `new_attendance_requests`
+- Home screen attendance actions: separate `Check In` and `Check Out` buttons with enable/disable rules
 - Attendance records shown in app: real backend records with `requested` status only
 - Dummy UI data retained for visual consistency (stats/other placeholders)
 
