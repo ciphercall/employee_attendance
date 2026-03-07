@@ -267,6 +267,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           _infoRow(Icons.email_outlined, 'Email', profile.email),
           _infoDivider(),
+          _infoRow(Icons.apartment_outlined, 'Sector', profile.sector),
+          _infoDivider(),
           _infoRow(Icons.business_outlined, 'Department', profile.department),
           _infoDivider(),
           _infoRow(Icons.work_outline, 'Designation', profile.designation),

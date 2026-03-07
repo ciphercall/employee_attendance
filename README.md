@@ -8,8 +8,9 @@ Flutter Android app for PPHL attendance.
 - Face registration: persisted to backend table `face_registration_android`
 - Check-in/check-out: submitted as attendance requests to backend table `new_attendance_requests`
 - Home screen attendance actions: separate `Check In` and `Check Out` buttons with enable/disable rules
-- Attendance records shown in app: real backend records with `requested` status only
+- Attendance records shown in app: real backend records across requested, approved, and rejected workflow states
 - Dummy UI data retained for visual consistency (stats/other placeholders)
+- Persistent per-install device identity sent with attendance and face-registration requests
 
 ## Backend auth integration
 
@@ -20,27 +21,57 @@ This app authenticates against `pphl_erp` JWT endpoints:
 - `GET /api/v1/logout?token=...`
 - `GET /api/v1/mobile/face-registration`
 - `POST /api/v1/mobile/face-registration`
+- `GET /api/v1/mobile/attendance-requests`
 - `GET /api/v1/mobile/attendance-requests?status=requested`
 - `POST /api/v1/mobile/attendance-requests`
 
 The app stores JWT token locally, loads profile + face registration from backend, keeps face data in memory for matching, and invalidates session on logout.
 
+## Canonical device and employee mapping
+
+- the app never chooses the canonical employee ID itself; backend identity comes from the authenticated user
+- mobile submissions now include a persistent `deviceIdentifier` stored in `SharedPreferences`
+- backend registers that device in `new_attendance_devices`
+- any ZKTeco linkage for the same employee must use `employees.id` as the canonical PIN
+
+## Workflow behavior
+
+- Android check-in/check-out submits one daily attendance request row that the backend updates with in and out times
+- The app now reads all latest records, not just pending ones, so checkout state remains correct after approvals
+- Team leader and HR decisions are reflected through the returned workflow fields
+- Submitted requests include mobile device metadata so the web app can approve and audit the real device source
+
 ## Run backend for local network
 
-From `pphl_erp`, run Laravel so phones on the same Wi-Fi can reach it:
+From the workspace root, use the canonical script documented in `SERVER_COMMANDS.md`:
 
-- `php artisan serve --host=0.0.0.0 --port=8000`
+- `powershell -ExecutionPolicy Bypass -File .\start_pphl_erp_and_frontend.ps1`
 
-Use your laptop LAN IP (example: `192.168.10.79`) for Android physical devices.
+Use your laptop LAN IP for Android physical devices.
+
+For the current mobile hotspot test setup on March 7, 2026, the active backend address is:
+
+- `http://10.35.15.107:8080`
 
 ## Flutter build with local backend URL
 
 From `employee_attendance`:
 
 - `flutter pub get`
-- `flutter build apk --release --dart-define=API_BASE_URL=http://192.168.10.79:8000 --dart-define=API_BASE_URLS=http://10.0.2.2:8000,http://192.168.10.79:8000`
+- `flutter build apk --release --dart-define=API_BASE_URL=http://10.35.15.107:8080 --dart-define=API_BASE_URLS=http://10.0.2.2:8080,http://10.35.15.107:8080,http://127.0.0.1:8080`
 
 `API_BASE_URL` is primary.
 `API_BASE_URLS` is optional comma-separated fallback list.
 
-Default (when no `dart-define` is passed): `http://10.0.2.2:8000`.
+Default primary base (when no `dart-define` is passed): `http://10.35.15.107:8080`.
+Default fallback bases: `http://10.0.2.2:8080,http://127.0.0.1:8080,http://192.168.10.79:8080`.
+
+Checkout button behavior:
+
+- the home screen refreshes attendance state on app resume
+- the app refreshes attendance state again right before opening check-in or check-out flow
+- this avoids stale disabled checkout actions after network changes or background/resume cycles
+
+Latest release build output:
+
+- `build/app/outputs/flutter-apk/app-release.apk`

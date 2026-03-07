@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import '../config/theme.dart';
 import '../data/dummy_data.dart';
 import '../models/attendance_request_record.dart';
+import '../models/auth_user_profile.dart';
 import '../services/attendance_request_service.dart';
+import '../services/auth_service.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/attendance_tile.dart';
 import 'check_in_screen.dart';
@@ -18,23 +20,60 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final AttendanceRequestService _attendanceRequestService =
       AttendanceRequestService();
+  final AuthService _authService = AuthService();
 
   bool _isClockedIn = DummyData.isClockedIn;
   String _checkInTime = DummyData.todayCheckIn;
   String _checkOutTime = DummyData.todayCheckOut;
   List<AttendanceRequestRecord> _requestedRecords = const [];
+  AuthUserProfile _profile = AuthUserProfile.fallback();
+  bool _isLoadingProfile = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAttendanceRequests();
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadAttendanceRequests();
+      _loadProfile();
+    }
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await _authService.getCurrentUserProfile();
+      if (!mounted) return;
+
+      setState(() {
+        _profile = profile ?? AuthUserProfile.fallback();
+        _isLoadingProfile = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _profile = AuthUserProfile.fallback();
+        _isLoadingProfile = false;
+      });
+    }
   }
 
   Future<void> _loadAttendanceRequests() async {
-    final records = await _attendanceRequestService.getRequestedRecords();
+    final records = await _attendanceRequestService.getAttendanceRecords();
     if (!mounted) return;
 
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -48,20 +87,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final referenceRecord = todayRecord ?? (records.isNotEmpty ? records.first : null);
     final isClockedIn = todayRecord != null
-        ? todayRecord.checkInText != '--' && todayRecord.checkOutText == '--'
-        : referenceRecord != null &&
-            referenceRecord.checkInText != '--' &&
-            referenceRecord.checkOutText == '--';
+        ? todayRecord.canTreatAsActiveCheckIn
+        : referenceRecord?.canTreatAsActiveCheckIn ?? false;
 
     setState(() {
       _requestedRecords = records;
-      if (todayRecord != null && todayRecord.checkInText != '--') {
+      if (todayRecord != null && todayRecord.hasCheckIn) {
         _checkInTime = todayRecord.checkInText;
       } else {
         _checkInTime = DummyData.todayCheckIn;
       }
 
-      if (todayRecord != null && todayRecord.checkOutText != '--') {
+      if (todayRecord != null && todayRecord.hasCheckOut) {
         _checkOutTime = todayRecord.checkOutText;
       } else {
         _checkOutTime = DummyData.todayCheckOut;
@@ -72,6 +109,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openCheckFlow({required bool isCheckOut}) async {
+    await _loadAttendanceRequests();
+    if (!mounted) return;
+
     if (isCheckOut && !_isClockedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -110,6 +150,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+
+    _loadAttendanceRequests();
   }
 
   @override
@@ -257,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Center(
                     child: Text(
-                      DummyData.userAvatar,
+                      _profile.avatarLetters,
                       style: GoogleFonts.poppins(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -280,12 +322,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Text(
-                        DummyData.userName,
+                        _isLoadingProfile ? 'Loading profile...' : _profile.name,
                         style: GoogleFonts.poppins(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _profile.designation == 'N/A'
+                            ? _profile.employeeId
+                            : '${_profile.designation} · ${_profile.employeeId}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: Colors.white70,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

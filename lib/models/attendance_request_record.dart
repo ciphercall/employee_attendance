@@ -8,6 +8,10 @@ class AttendanceRequestRecord {
     required this.status,
     this.requestedInTime,
     this.requestedOutTime,
+    this.deviceType,
+    this.workflowStage,
+    this.supervisorStatus,
+    this.hrStatus,
     this.address,
     this.createdAt,
   });
@@ -18,8 +22,29 @@ class AttendanceRequestRecord {
   final String status;
   final String? requestedInTime;
   final String? requestedOutTime;
+  final String? deviceType;
+  final String? workflowStage;
+  final String? supervisorStatus;
+  final String? hrStatus;
   final String? address;
   final String? createdAt;
+
+  bool get isRejected => status.toLowerCase() == 'rejected';
+
+  bool get hasCheckIn => checkInText != '--';
+
+  bool get hasCheckOut => checkOutText != '--' && !hasInvalidChronology;
+
+  bool get hasInvalidChronology {
+    final inTime = DateTime.tryParse(requestedInTime ?? '');
+    final outTime = DateTime.tryParse(requestedOutTime ?? '');
+    if (inTime == null || outTime == null) {
+      return false;
+    }
+    return outTime.isBefore(inTime);
+  }
+
+  bool get canTreatAsActiveCheckIn => hasCheckIn && !hasCheckOut && !isRejected;
 
   String get dayLabel {
     final parsed = DateTime.tryParse(attDate);
@@ -50,7 +75,7 @@ class AttendanceRequestRecord {
       'checkOut': checkOutText,
       'status': status.toLowerCase(),
       'workHours': '--',
-      'verifiedBy': requestType.replaceAll('_', ' '),
+      'verifiedBy': workflowStage ?? requestType.replaceAll('_', ' '),
     };
   }
 
@@ -62,6 +87,10 @@ class AttendanceRequestRecord {
       status: (json['status'] ?? 'requested').toString(),
       requestedInTime: json['requestedInTime']?.toString(),
       requestedOutTime: json['requestedOutTime']?.toString(),
+      deviceType: json['deviceType']?.toString(),
+      workflowStage: json['workflowStage']?.toString(),
+      supervisorStatus: json['supervisorStatus']?.toString(),
+      hrStatus: json['hrStatus']?.toString(),
       address: json['address']?.toString(),
       createdAt: json['createdAt']?.toString(),
     );

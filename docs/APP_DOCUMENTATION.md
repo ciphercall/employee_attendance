@@ -1,6 +1,6 @@
 # PPHL Attendance System — Complete App Documentation
 
-> **Single Source of Truth** — Last updated: March 4, 2026  
+> **Single Source of Truth** — Last updated: March 8, 2026  
 > This document describes the complete architecture, every feature, all files, data flows, security mechanisms, and implementation details of the PPHL Attendance System Flutter Android app.
 
 > Authentication note: Login is integrated with backend `pphl_erp` via `POST /api/v1/a/login`. See `docs/AUTHENTICATION_INTEGRATION.md` for setup and API details.
@@ -8,6 +8,10 @@
 > March 5, 2026 update: Face registration and attendance records are now backend-synced. Face data is persisted in backend `face_registration_android` and hydrated into app memory on login/profile fetch. Attendance check-in/check-out submits to backend `new_attendance_requests`, and attendance screens now show backend `requested` records. Any older local-only notes in this file are superseded by this update and `docs/AUTHENTICATION_INTEGRATION.md`.
 
 > March 7, 2026 UI update: Home screen uses separate `Check In` and `Check Out` buttons instead of a single toggle action. Buttons are state-aware and prevent invalid sequences.
+
+> March 7, 2026 integration update: Android submissions now include a persistent device identifier, backend device approval is live, and canonical employee identity for attendance/ZKTeco flows is now `employees.id`.
+
+> March 8, 2026 device identity update: Android now prefers a stable OS-backed Android ID via `android_id` before falling back to a generated local identifier. This reduces duplicate smartphone rows in the backend attendance-device registry after app reinstall or storage reset.
 
 ---
 
@@ -46,7 +50,7 @@
 | **Version** | 2.0.0+2 |
 | **Dart SDK** | ^3.11.0 |
 | **Flutter Channel** | Stable (3.41.2) |
-| **APK Size** | ~85.9 MB (latest arm/arm64 release build) |
+| **APK Size** | ~105.6 MB (latest release build) |
 
 ### What the App Does
 
@@ -77,6 +81,7 @@
 | **Camera (legacy)** | `image_picker: ^1.2.1` — native camera UI (still available for fallback) |
 | **GPS** | `geolocator: ^14.0.2` + `geocoding: ^4.0.0` — high accuracy + reverse geocode |
 | **Permissions** | `permission_handler: ^12.0.1` — camera, location |
+| **Device Identity** | `android_id: ^0.4.0` — stable Android device identifier for backend registry dedupe |
 | **Local Storage** | `shared_preferences: ^2.5.4` — face embeddings, registration metadata |
 | **UI/Animation** | `animate_do`, `google_fonts` (Poppins), `fl_chart`, `shimmer`, `percent_indicator`, `lottie`, `flutter_staggered_animations`, `cached_network_image` |
 | **Minimum Android SDK** | API 26 (Android 8.0) — required by `tflite_flutter` |
@@ -185,8 +190,8 @@ LoginScreen
 |---|---|
 | **State** | `StatefulWidget` |
 | **Auth** | Real backend auth via `POST /api/v1/a/login` |
-| **Flow** | 2-second simulated delay → `pushReplacement` to `MainShell` |
-| **UI** | Dark gradient background (`AppColors.darkGradient`), animated PPHL GIF logo from `peoplespoultry.com`, login card with email/password fields, remember me checkbox, social login buttons (Face ID / Biometric — both just call `_handleLogin`) |
+| **Flow** | Backend-authenticated sign-in → profile hydration → `pushReplacement` to `MainShell` |
+| **UI** | Dark gradient background (`AppColors.darkGradient`), animated PPHL GIF logo from `peoplespoultry.com`, login card with email/password fields, remember me checkbox |
 | **Logo URL** | `https://peoplespoultry.com/assets/front/img/1730297252134723053.gif` |
 
 ### 6.2 MainShell (`main_shell.dart`, 126 lines)
@@ -203,7 +208,7 @@ LoginScreen
 | Aspect | Detail |
 |---|---|
 | **State** | `StatefulWidget` (tracks `_isClockedIn`, `_checkInTime`) |
-| **Header** | Gradient card with avatar, greeting (dynamic AM/PM), today's check-in/out/hours |
+| **Header** | Gradient card with live backend avatar letters, employee name, designation/employee ID, greeting (dynamic AM/PM), today's check-in/out/hours |
 | **Quick Stats** | 4 `StatCard` widgets: Present (18), Absent (1), Late (2), Leave (1) |
 | **Clock-In Card** | Gradient card that navigates to `CheckInScreen`. On success callback: sets `_isClockedIn = true`, updates `_checkInTime` |
 | **Weekly Chart** | `BarChart` from `fl_chart` showing Mon–Sun hours |
@@ -558,11 +563,11 @@ A row widget displaying a single attendance record.
 
 ### 10.1 DummyData (`dummy_data.dart`)
 
-All screen data is currently served from a static `DummyData` class. **There is no backend, no API, no database** beyond `SharedPreferences` for face embeddings.
+`DummyData` still exists for visual placeholders, but the app now uses live backend APIs for login, profile identity, face registration, and attendance history.
 
 | Data | Source |
 |---|---|
-| **User profile** | Hard-coded: John Anderson, EMP-2024-0042, Senior Software Engineer, Engineering dept |
+| **User profile** | Live backend profile from `GET /api/v1/get-my-info` |
 | **Attendance stats** | Hard-coded: 22 working days, 18 present, 1 absent, 2 late, 1 leave, 81.8% |
 | **Today's status** | Hard-coded: not clocked in, no check-in/out times |
 | **Recent attendance** | Hard-coded list of 10 records (Feb 15–24, 2026) |
@@ -728,7 +733,7 @@ Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
 ### Build Output
 
 ```
-build\app\outputs\flutter-apk\app-release.apk  (~85.9 MB, arm/arm64 build)
+build\app\outputs\flutter-apk\app-release.apk  (~105.6 MB, latest release build)
 ```
 
 ### Environment
@@ -746,7 +751,7 @@ build\app\outputs\flutter-apk\app-release.apk  (~85.9 MB, arm/arm64 build)
 - OneDrive sync can cause file locking during builds — clean `build/` folder first.
 - If CMake/NDK configure fails in OneDrive path (for example `:app:configureCMakeRelease[arm64-v8a]`), build in a non-OneDrive path such as `C:\temp\employee_attendance_build`, then copy the APK back.
 - If release fails on `:app:stripReleaseDebugSymbols` with missing `...\out\lib\x86`, build with explicit ABIs: `--target-platform android-arm,android-arm64`.
-- APK size depends on ABI selection (≈85.9 MB for arm/arm64 targeted build; larger for all-ABI universal builds).
+- APK size depends on ABI selection (the current full release build is ≈105.6 MB; ABI-targeted builds are smaller).
 - The build uses debug signing keys — a release keystore is needed for production.
 
 ---
@@ -757,9 +762,9 @@ build\app\outputs\flutter-apk\app-release.apk  (~85.9 MB, arm/arm64 build)
 
 | Area | Limitation |
 |---|---|
-| **Authentication** | Dummy — no real backend auth, any credentials work |
-| **Data persistence** | No database — all attendance data is static dummy data |
-| **Backend** | No API integration — app is fully offline/local |
+| **Authentication** | Requires live backend JWT auth from `pphl_erp`; offline login is not supported |
+| **Data persistence** | Core attendance, profile, face registration, and approval data are backend-driven; some dashboard widgets still use static/demo values |
+| **Backend** | Live API integration is required for production flows; the app is no longer an offline-only prototype |
 | **Face data** | Stored in `SharedPreferences` (plain JSON) — not encrypted |
 | **GPS data** | Captured but not persisted after screen closes |
 | **Camera** | Uses `camera` package for live preview — full programmatic control over front camera. Angle detection, smile/blink checks done in real-time via periodic `takePicture()` calls. |

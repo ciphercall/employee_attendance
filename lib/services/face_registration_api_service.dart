@@ -6,12 +6,14 @@ import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/face_registration_data.dart';
 import 'auth_service.dart';
+import 'device_identity_service.dart';
 
 class FaceRegistrationApiService {
   FaceRegistrationApiService({AuthService? authService})
       : _authService = authService ?? AuthService();
 
   final AuthService _authService;
+  final DeviceIdentityService _deviceIdentityService = DeviceIdentityService();
 
   Future<FaceRegistrationData?> fetchCurrentUserFaceRegistration() async {
     final token = await _authService.getToken();
@@ -58,6 +60,12 @@ class FaceRegistrationApiService {
       return false;
     }
 
+    final deviceMetadata = await _deviceIdentityService.getDeviceMetadata();
+    final payload = {
+      ...registration.toJson(),
+      ...deviceMetadata,
+    };
+
     for (final url in AppConfig.faceRegistrationUrls) {
       try {
         final response = await http
@@ -68,7 +76,7 @@ class FaceRegistrationApiService {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $token',
               },
-              body: jsonEncode(registration.toJson()),
+              body: jsonEncode(payload),
             )
             .timeout(const Duration(seconds: 20));
 

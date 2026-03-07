@@ -21,7 +21,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
       AttendanceRequestService();
 
   String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Requested'];
+  final List<String> _filters = ['All', 'Requested', 'Approved', 'Rejected'];
   List<AttendanceRequestRecord> _records = const [];
   bool _isLoading = false;
 
@@ -33,7 +33,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
 
   Future<void> _loadRecords() async {
     setState(() => _isLoading = true);
-    final records = await _attendanceRequestService.getRequestedRecords();
+    final records = await _attendanceRequestService.getAttendanceRecords();
     if (!mounted) return;
     setState(() {
       _records = records;

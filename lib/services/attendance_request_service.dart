@@ -7,6 +7,7 @@ import '../config/app_config.dart';
 import '../models/attendance_request_record.dart';
 import '../models/face_registration_data.dart';
 import 'auth_service.dart';
+import 'device_identity_service.dart';
 
 class AttendanceSubmitResult {
   const AttendanceSubmitResult({
@@ -23,8 +24,12 @@ class AttendanceRequestService {
       : _authService = authService ?? AuthService();
 
   final AuthService _authService;
+  final DeviceIdentityService _deviceIdentityService = DeviceIdentityService();
 
-  Future<List<AttendanceRequestRecord>> getRequestedRecords() async {
+  Future<List<AttendanceRequestRecord>> getAttendanceRecords({
+    String? status,
+    int limit = 100,
+  }) async {
     final token = await _authService.getToken();
     if (token == null || token.isEmpty) {
       return const [];
@@ -32,12 +37,16 @@ class AttendanceRequestService {
 
     for (final url in AppConfig.attendanceRequestUrls) {
       try {
+        final queryParameters = <String, String>{
+          'limit': '$limit',
+        };
+        if (status != null && status.trim().isNotEmpty) {
+          queryParameters['status'] = status.trim();
+        }
+
         final response = await http
             .get(
-              Uri.parse(url).replace(queryParameters: {
-                'status': 'requested',
-                'limit': '100',
-              }),
+              Uri.parse(url).replace(queryParameters: queryParameters),
               headers: {
                 'Accept': 'application/json',
                 'Authorization': 'Bearer $token',
@@ -76,6 +85,10 @@ class AttendanceRequestService {
     return const [];
   }
 
+  Future<List<AttendanceRequestRecord>> getRequestedRecords() {
+    return getAttendanceRecords(status: 'requested');
+  }
+
   Future<AttendanceSubmitResult> submitSelfPunch({
     required bool isCheckOut,
     required double latitude,
@@ -91,6 +104,7 @@ class AttendanceRequestService {
       );
     }
 
+    final deviceMetadata = await _deviceIdentityService.getDeviceMetadata();
     final now = DateTime.now().toIso8601String();
     final body = <String, dynamic>{
       'direction': isCheckOut ? 'out' : 'in',
@@ -100,7 +114,12 @@ class AttendanceRequestService {
       'lng': longitude,
       'address': address,
       'requestType': 'self_punch',
-      if (faceRegistration != null) 'face_registration': faceRegistration.toJson(),
+      ...deviceMetadata,
+      if (faceRegistration != null)
+        'face_registration': {
+          ...faceRegistration.toJson(),
+          ...deviceMetadata,
+        },
     };
 
     String? networkError;

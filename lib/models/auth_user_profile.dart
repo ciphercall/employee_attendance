@@ -4,6 +4,7 @@ class AuthUserProfile {
   const AuthUserProfile({
     required this.name,
     required this.email,
+    required this.sector,
     required this.designation,
     required this.department,
     required this.employeeId,
@@ -14,6 +15,7 @@ class AuthUserProfile {
 
   final String name;
   final String email;
+  final String sector;
   final String designation;
   final String department;
   final String employeeId;
@@ -49,40 +51,57 @@ class AuthUserProfile {
 
   static AuthUserProfile fromJson(Map<String, dynamic> json) {
     final employee = _readMap(json['employee']);
+    final facility = _readMap(json['current_facility']);
 
     return AuthUserProfile(
       name: _firstNonEmpty([
+        _fullName(employee),
         json['name'],
         json['username'],
       ], fallback: 'User'),
       email: _firstNonEmpty([
+        employee['email'],
         json['email'],
       ], fallback: 'N/A'),
+      sector: _firstNonEmpty([
+        _mapName(json['sector']),
+        _mapName(facility['sector']),
+        employee['sector'],
+      ], fallback: 'N/A'),
       designation: _firstNonEmpty([
+        _mapName(json['designation']),
+        _mapName(facility['designation']),
         json['designation'],
         employee['designation'],
         employee['job_title'],
       ], fallback: 'N/A'),
       department: _firstNonEmpty([
+        _mapName(json['department']),
+        _mapName(facility['department']),
         json['department'],
         employee['department'],
       ], fallback: 'N/A'),
       employeeId: _firstNonEmpty([
-        json['employeeId'],
         json['employee_id'],
+        json['employeeId'],
+        employee['emp_id'],
         employee['employeeId'],
         employee['employee_id'],
       ], fallback: 'N/A'),
       phone: _firstNonEmpty([
         json['phone'],
         json['mobile'],
+        employee['phone_number'],
         employee['phone'],
         employee['mobile'],
       ], fallback: 'N/A'),
       joiningDate: _firstNonEmpty([
         json['joiningDate'],
         json['date_of_joining'],
+        facility['jDate'],
+        facility['fDate'],
         employee['joiningDate'],
+        employee['doj'],
         employee['date_of_joining'],
       ], fallback: 'N/A'),
       faceRegistration: FaceRegistrationData.fromJson(json['face_registration']),
@@ -93,6 +112,7 @@ class AuthUserProfile {
     return const AuthUserProfile(
       name: 'User',
       email: 'N/A',
+      sector: 'N/A',
       designation: 'N/A',
       department: 'N/A',
       employeeId: 'N/A',
@@ -107,6 +127,26 @@ class AuthUserProfile {
       return value;
     }
     return <String, dynamic>{};
+  }
+
+  static String _mapName(Object? value) {
+    if (value is Map<String, dynamic>) {
+      return _firstNonEmpty([
+        value['name'],
+        value['nameEn'],
+        value['title'],
+      ], fallback: '');
+    }
+
+    final text = value?.toString().trim() ?? '';
+    return text.toLowerCase() == 'null' ? '' : text;
+  }
+
+  static String _fullName(Map<String, dynamic> employee) {
+    final firstName = employee['first_name']?.toString().trim() ?? '';
+    final lastName = employee['last_name']?.toString().trim() ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    return fullName;
   }
 
   static String _firstNonEmpty(
