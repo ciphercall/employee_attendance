@@ -3,7 +3,7 @@ class AppConfig {
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000',
+    defaultValue: 'http://10.0.2.2:8080',
   );
 
   static const String _apiBaseUrls = String.fromEnvironment(
@@ -53,11 +53,11 @@ class AppConfig {
   static List<String> get logoutUrls =>
       apiBaseUrlCandidates.map((base) => '$base/api/v1/logout').toList();
 
-    static List<String> get attendanceRequestUrls => apiBaseUrlCandidates
+  static List<String> get attendanceRequestUrls => apiBaseUrlCandidates
       .map((base) => '$base/api/v1/mobile/attendance-requests')
       .toList();
 
-    static List<String> get faceRegistrationUrls => apiBaseUrlCandidates
+  static List<String> get faceRegistrationUrls => apiBaseUrlCandidates
       .map((base) => '$base/api/v1/mobile/face-registration')
       .toList();
 }

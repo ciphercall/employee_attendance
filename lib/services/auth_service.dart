@@ -105,7 +105,7 @@ class AuthService {
     return AuthResult(
       success: false,
       message:
-          '$networkReason Verify backend URL/network. Tried bases: $baseUrls',
+          '$networkReason Verify backend URL/network. If this is a physical Android device, build with LAN IP, e.g. --dart-define=API_BASE_URL=http://192.168.x.x:8080. Tried bases: $baseUrls',
     );
   }
 
