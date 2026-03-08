@@ -13,6 +13,8 @@
 
 > March 8, 2026 device identity update: Android now prefers a stable OS-backed Android ID via `android_id` before falling back to a generated local identifier. This reduces duplicate smartphone rows in the backend attendance-device registry after app reinstall or storage reset.
 
+> March 8, 2026 ZKTeco workflow update: backend ZKTeco attendance now also ingests ADMS `querydata` transaction history when live `rtlog` uploads are missing. Machine punches aggregate per day so the first punch becomes check-in and the last punch becomes check-out.
+
 ---
 
 ## Table of Contents

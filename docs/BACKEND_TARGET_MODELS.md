@@ -138,10 +138,13 @@ This is the new canonical table for Android face registration metadata and embed
 
 ## Integration Notes (Android + ZKTeco)
 
-- ZKTeco ADMS currently lands in `zkteco_raw_logs` with `device_sn`, `query_params`, and `raw_body` (including `pin`, `verifytype`, event time).
+- ZKTeco ADMS lands in `zkteco_raw_logs` with `device_sn`, `query_params`, and `raw_body` from both live `rtlog` uploads and fallback `querydata` transaction snapshots.
+- transaction snapshots may use `verified`, `eventtype`, `inoutstate`, `doorid`, and `time_second` instead of `verifytype`, `event`, `inoutstatus`, `eventaddr`, and explicit `time`.
+- `time_second` for transaction snapshots is decoded against ZKTeco epoch `1999-07-07 00:00:00`.
 - `new_attendance_devices.deviceSn` is the stable join key to connect ADMS logs to your device master.
-- `face_registration_android.zktecoPin` lets one employee identity be resolved both from mobile face verification and ZKTeco `rtlog` pin events.
+- `face_registration_android.zktecoPin` lets one employee identity be resolved both from mobile face verification and ZKTeco pin events.
 - Mobile check-in requests should write into `new_attendance_requests` with `requestType='self_punch'`, geo fields, and optional photo proof.
+- ZKTeco attendance requests also write into `new_attendance_requests` with `requestType='self_punch'`, but they aggregate daily punches differently from Android: the first same-day device punch is check-in and the last same-day device punch is check-out.
 
 ---
 
