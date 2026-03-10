@@ -41,30 +41,39 @@ The app stores JWT token locally, loads profile + face registration from backend
 - Team leader and HR decisions are reflected through the returned workflow fields
 - Submitted requests include mobile device metadata so the web app can approve and audit the real device source
 
+## Default backend target
+
+Production and release builds now target:
+
+- `https://hrm.peoplesitsolution.com`
+
 ## Run backend for local network
 
 From the workspace root, use the canonical script documented in `SERVER_COMMANDS.md`:
 
 - `powershell -ExecutionPolicy Bypass -File .\start_pphl_erp_and_frontend.ps1`
 
-Use your laptop LAN IP for Android physical devices.
+Use your laptop LAN IP for Android physical devices only when you intentionally point the app back to a local `pphl_erp` instance for development.
 
-For the current mobile hotspot test setup on March 7, 2026, the active backend address is:
-
-- `http://10.35.15.107:8080`
-
-## Flutter build with local backend URL
+## Flutter build for cloud backend
 
 From `employee_attendance`:
 
 - `flutter pub get`
-- `flutter build apk --release --dart-define=API_BASE_URL=http://10.35.15.107:8080 --dart-define=API_BASE_URLS=http://10.0.2.2:8080,http://10.35.15.107:8080,http://127.0.0.1:8080`
+- `flutter build apk --release`
+
+Default primary base (when no `dart-define` is passed): `https://hrm.peoplesitsolution.com`.
+Default fallback bases: none.
+
+## Flutter build with local backend override
+
+From `employee_attendance`:
+
+- `flutter pub get`
+- `flutter build apk --release --dart-define=API_BASE_URL=http://192.168.x.x:8080 --dart-define=API_BASE_URLS=http://10.0.2.2:8080,http://192.168.x.x:8080,http://127.0.0.1:8080`
 
 `API_BASE_URL` is primary.
 `API_BASE_URLS` is optional comma-separated fallback list.
-
-Default primary base (when no `dart-define` is passed): `http://10.35.15.107:8080`.
-Default fallback bases: `http://10.0.2.2:8080,http://127.0.0.1:8080,http://192.168.10.79:8080`.
 
 Checkout button behavior:
 

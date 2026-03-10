@@ -1,13 +1,12 @@
 class AppConfig {
   AppConfig._();
 
-  static const String _defaultLanBaseUrl = 'http://10.35.15.107:8080';
-  static const String _defaultFallbackBaseUrls =
-      'http://10.0.2.2:8080,http://127.0.0.1:8080,http://192.168.10.79:8080';
+  static const String _defaultBaseUrl = 'https://hrm.peoplesitsolution.com';
+  static const String _defaultFallbackBaseUrls = '';
 
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: _defaultLanBaseUrl,
+    defaultValue: _defaultBaseUrl,
   );
 
   static const String _apiBaseUrls = String.fromEnvironment(
