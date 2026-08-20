@@ -223,7 +223,7 @@ LoginScreen
 | **State** | `StatefulWidget` with `TickerProviderStateMixin` |
 | **Props** | `VoidCallback onCheckIn` — called on success |
 | **Layout** | Fixed top (camera + face-path progress), scrollable middle (challenge status, verification/GPS cards), fixed bottom (action button) |
-| **Camera** | Live front-camera preview using `camera` package, displayed inside a human face-shaped clip container (normal non-mirrored orientation) |
+| **Camera** | Live front-camera preview using `camera` package, displayed as a full-width rounded preview with a centered human face guide and progress ring (normal non-mirrored orientation) |
 | **Flow** | Face-placement-gated dynamic challenge flow. See [Check-In Flow](#check-in-flow) below |
 
 #### Check-In Flow
@@ -231,7 +231,7 @@ LoginScreen
 | Phase | What Happens |
 |---|---|
 | **Initializing** | Camera + FaceRecognitionService initialization, verify face is registered |
-| **Scanning** | Live camera preview active. Each step is gated by face placement (must be centered and sized correctly in the face guide). Placement validation uses actual captured frame dimensions (not only preview metadata), includes width/height orientation fallback, and uses check-in centering tolerance tuned to ±35%. Liveness challenges run in randomized order with periodic `takePicture()` every 700ms. |
+| **Scanning** | Live camera preview active. Check-in now uses the same high-resolution front-camera preset and similar full-width framing as face registration so perceived face distance stays consistent between flows. Each step is gated by face placement (must be centered and sized correctly in the face guide). Placement validation uses actual captured frame dimensions (not only preview metadata), includes width/height orientation fallback, and uses check-in centering tolerance tuned to ±35%. Liveness challenges run in randomized order with periodic `takePicture()` every 700ms. |
 | **Verifying** | Early verification starts only after at least **2** challenges are passed (up to 2 captures). If a match is found, remaining steps are skipped; otherwise scanning continues. If all challenges are consumed, a final verification runs with up to 3 captures and best-confidence selection. |
 | **GPS** | Face verified → capture GPS coordinates via `Geolocator` (high accuracy, 15s timeout) → reverse geocode address |
 | **Success** | All steps complete → "Done ✓" button pops the screen and calls `onCheckIn` callback |

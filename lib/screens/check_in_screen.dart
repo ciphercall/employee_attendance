@@ -115,18 +115,6 @@ class _FaceScanProgressPainter extends CustomPainter {
       old.progress != progress || old.progressColor != progressColor;
 }
 
-class _FaceShapeClipper extends CustomClipper<Path> {
-  const _FaceShapeClipper();
-
-  @override
-  Path getClip(Size size) {
-    return _buildFaceGuidePath(Rect.fromLTWH(0, 0, size.width, size.height));
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
 // ================================================================
 // Enums
 // ================================================================
@@ -288,7 +276,7 @@ class _CheckInScreenState extends State<CheckInScreen>
 
       _cameraController = CameraController(
         front,
-        ResolutionPreset.medium,
+        ResolutionPreset.high,
         enableAudio: false,
       );
 
@@ -870,8 +858,9 @@ class _CheckInScreenState extends State<CheckInScreen>
   @override
   Widget build(BuildContext context) {
     final sw = MediaQuery.of(context).size.width;
-    final faceWidth = sw * 0.64;
-    final faceHeight = faceWidth * 1.28;
+    final previewHeight = sw * 1.1;
+    final faceGuideWidth = sw * 0.64;
+    final faceGuideHeight = faceGuideWidth * 1.28;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0E21),
@@ -892,7 +881,7 @@ class _CheckInScreenState extends State<CheckInScreen>
       body: Column(
         children: [
           // ---- FIXED TOP: Camera + Circular Progress ----
-          _buildCameraSection(faceWidth, faceHeight),
+          _buildCameraSection(previewHeight, faceGuideWidth, faceGuideHeight),
 
           // ---- SCROLLABLE MIDDLE ----
           Expanded(
@@ -924,55 +913,59 @@ class _CheckInScreenState extends State<CheckInScreen>
   // ----------------------------------------------------------------
   // Camera section with circular progress
   // ----------------------------------------------------------------
-  Widget _buildCameraSection(double width, double height) {
+  Widget _buildCameraSection(
+    double previewHeight,
+    double guideWidth,
+    double guideHeight,
+  ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: Column(
         children: [
           SizedBox(
-            width: width + 28,
-            height: height + 28,
+            width: double.infinity,
+            height: previewHeight,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Camera preview clipped to face shape
+                // Camera preview uses the same full-width framing as registration.
                 if (_cameraReady && _cameraController != null)
-                  ClipPath(
-                    clipper: const _FaceShapeClipper(),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
                     child: SizedBox(
-                      width: width,
-                      height: height,
+                      width: double.infinity,
+                      height: previewHeight,
                       child: FittedBox(
                         fit: BoxFit.cover,
                         child: SizedBox(
                           width:
                               _cameraController!.value.previewSize?.height ??
-                                  width,
+                                  guideWidth,
                           height:
                               _cameraController!.value.previewSize?.width ??
-                                  height,
+                                  previewHeight,
                           child: CameraPreview(_cameraController!),
                         ),
                       ),
                     ),
                   )
                 else
-                  ClipPath(
-                    clipper: const _FaceShapeClipper(),
-                    child: Container(
-                      width: width,
-                      height: height,
+                  Container(
+                    width: double.infinity,
+                    height: previewHeight,
+                    decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.05),
-                      child: const Center(
-                          child: CircularProgressIndicator(
-                              color: Colors.white38)),
+                      borderRadius: BorderRadius.circular(24),
                     ),
+                    child: const Center(
+                        child:
+                            CircularProgressIndicator(color: Colors.white38)),
                   ),
 
                 // Clockwise progress around face path
                 SizedBox(
-                  width: width + 18,
-                  height: height + 18,
+                  width: guideWidth + 18,
+                  height: guideHeight + 18,
                   child: AnimatedBuilder(
                     animation: _progressAnim,
                     builder: (context, child) => CustomPaint(
@@ -1004,6 +997,24 @@ class _CheckInScreenState extends State<CheckInScreen>
                           color: Colors.white, size: 40),
                     ),
                   ),
+
+                IgnorePointer(
+                  child: SizedBox(
+                    width: guideWidth,
+                    height: guideHeight,
+                    child: CustomPaint(
+                      painter: _GuideOverlayPainter(
+                        guideColor: _faceDetected
+                            ? (_facePlacedCorrectly && _angleHoldFrames > 0
+                                ? AppColors.success
+                                : _facePlacedCorrectly
+                                    ? AppColors.primary
+                                    : AppColors.warning)
+                            : Colors.white54,
+                      ),
+                    ),
+                  ),
+                ),
 
                 // "No face" badge
                 if (_cameraReady &&
@@ -1352,5 +1363,38 @@ class _CheckInScreenState extends State<CheckInScreen>
         ),
       ),
     );
+  }
+}
+
+class _GuideOverlayPainter extends CustomPainter {
+  final Color guideColor;
+
+  const _GuideOverlayPainter({required this.guideColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final guideRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final guidePath = _buildFaceGuidePath(guideRect.deflate(8));
+
+    canvas.drawPath(
+      guidePath,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.28)
+        ..style = PaintingStyle.fill,
+    );
+
+    canvas.drawPath(
+      guidePath,
+      Paint()
+        ..color = guideColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _GuideOverlayPainter oldDelegate) {
+    return oldDelegate.guideColor != guideColor;
   }
 }
