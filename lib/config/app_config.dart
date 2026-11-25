@@ -1,7 +1,7 @@
 class AppConfig {
   AppConfig._();
 
-  static const String _defaultBaseUrl = 'https://hrm.peoplesitsolution.com';
+  static const String _defaultBaseUrl = 'https://bhrm.pphl.online';
   static const String _defaultFallbackBaseUrls = '';
 
   static const String apiBaseUrl = String.fromEnvironment(

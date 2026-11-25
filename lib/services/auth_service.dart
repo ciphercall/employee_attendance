@@ -105,7 +105,7 @@ class AuthService {
     return AuthResult(
       success: false,
       message:
-          '$networkReason Verify backend URL/network. Default builds target https://hrm.peoplesitsolution.com. For local development, override with --dart-define=API_BASE_URL=http://192.168.x.x:8080. Tried bases: $baseUrls',
+          '$networkReason Verify backend URL/network. Default builds target https://bhrm.pphl.online. For local development, override with --dart-define=API_BASE_URL=http://192.168.x.x:8080. Tried bases: $baseUrls',
     );
   }
 

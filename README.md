@@ -45,7 +45,7 @@ The app stores JWT token locally, loads profile + face registration from backend
 
 Production and release builds now target:
 
-- `https://hrm.peoplesitsolution.com`
+- `https://bhrm.pphl.online`
 
 ## Run backend for local network
 
@@ -62,7 +62,7 @@ From `employee_attendance`:
 - `flutter pub get`
 - `flutter build apk --release`
 
-Default primary base (when no `dart-define` is passed): `https://hrm.peoplesitsolution.com`.
+Default primary base (when no `dart-define` is passed): `https://bhrm.pphl.online`.
 Default fallback bases: none.
 
 ## Flutter build with local backend override
